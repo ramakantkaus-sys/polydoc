@@ -23,7 +23,6 @@ from .blocks import (
     Heading,
     Image,
     Page,
-    Paragraph,
     Section,
     Slide,
     Table,

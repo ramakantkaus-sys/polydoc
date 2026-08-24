@@ -1,4 +1,4 @@
-"""Resource limits: decompression bombs and oversized input.
+﻿"""Resource limits: decompression bombs and oversized input.
 
 These are security tests. A service that accepts uploaded documents and parses them
 without a ceiling can be taken down by a single small file, because ZIP-based Office
@@ -169,9 +169,18 @@ class TestArchiveInspection:
 
 @needs_docx
 class TestDocxBombRejected:
+    #: Deliberately under libxml2's 10 MB text-node ceiling.
+    #:
+    #: lxml on Linux and macOS refuses a single text node larger than that
+    #: ("Resource limit exceeded: Text node too long"), while the Windows build
+    #: happily parses it. A larger payload here made `test_opt_out_still_possible`
+    #: pass on Windows and fail everywhere else. 4 MB is still far above the 1 MB
+    #: ceiling these tests set, so the guard is exercised just as well.
+    BOMB_BYTES = 4 * 1024 * 1024
+
     @pytest.fixture
     def bomb(self):
-        """A structurally valid DOCX whose document.xml expands to 64 MB.
+        """A structurally valid DOCX whose document.xml expands well past the limit.
 
         Structural validity matters: a stub archive is rejected for missing
         ``[Content_Types].xml``, which proves nothing about decompression limits.
@@ -180,17 +189,19 @@ class TestDocxBombRejected:
         payload = (
             '<?xml version="1.0"?><w:document '
             'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            "<w:body><w:p><w:r><w:t>" + ("A" * (64 * 1024 * 1024)) + "</w:t></w:r></w:p>"
+            "<w:body><w:p><w:r><w:t>" + ("A" * self.BOMB_BYTES) + "</w:t></w:r></w:p>"
             "</w:body></w:document>"
         )
         return poison_entry(valid, "word/document.xml", payload)
 
     def test_bomb_is_small_on_disk(self, bomb):
-        assert len(bomb) < 1024 * 1024  # under 1 MB, expands to 64 MB
+        # A tiny archive that expands to several megabytes: the bomb shape.
+        assert len(bomb) < 256 * 1024
+        assert self.BOMB_BYTES > 8 * len(bomb)
 
     def test_bomb_is_rejected(self, bomb):
         with pytest.raises(DocumentTooLargeError):
-            polydoc.open(bomb, format="docx", max_expanded_bytes=8 * 1024 * 1024)
+            polydoc.open(bomb, format="docx", max_expanded_bytes=1024 * 1024)
 
     def test_rejection_happens_before_parsing(self, bomb):
         """The guard must fire without expanding the entry, so it has to be cheap."""
@@ -198,15 +209,15 @@ class TestDocxBombRejected:
 
         started = time.perf_counter()
         with pytest.raises(DocumentTooLargeError):
-            polydoc.open(bomb, format="docx", max_expanded_bytes=8 * 1024 * 1024)
+            polydoc.open(bomb, format="docx", max_expanded_bytes=1024 * 1024)
         assert time.perf_counter() - started < 2.0
 
     def test_error_is_actionable(self, bomb):
         with pytest.raises(DocumentTooLargeError, match="max_expanded_bytes"):
-            polydoc.open(bomb, format="docx", max_expanded_bytes=8 * 1024 * 1024)
+            polydoc.open(bomb, format="docx", max_expanded_bytes=1024 * 1024)
 
     def test_opt_out_still_possible(self, bomb):
-        # Trusted input may legitimately be enormous; the ceiling is a policy, not a wall.
+        # Trusted input may legitimately be large; the ceiling is a policy, not a wall.
         document = polydoc.open(bomb, format="docx", limits=Limits.unlimited())
         assert len(document.text) > 1_000_000
 
@@ -247,7 +258,7 @@ class TestXlsxBombRejected:
         )
         bomb = poison_entry(valid, target, sheet)
         with pytest.raises(DocumentTooLargeError):
-            polydoc.open(bomb, format="xlsx", max_expanded_bytes=8 * 1024 * 1024)
+            polydoc.open(bomb, format="xlsx", max_expanded_bytes=1024 * 1024)
 
     def test_normal_workbook_unaffected(self, tmp_path):
         path = Document([Table.from_rows([["a", "b"], ["1", "2"]])]).save(tmp_path / "n.xlsx")

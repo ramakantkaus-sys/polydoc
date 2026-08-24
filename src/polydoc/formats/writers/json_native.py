@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from ...model import Block, Document, Heading, Table
+from ...model import Document, Heading, Table
 from ..base import TextWriter
 from ..registry import register_writer
 

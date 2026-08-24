@@ -3,6 +3,32 @@
 All notable changes to polydoc are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-08-24
+
+Packaging and portability fixes found by CI on Linux and macOS, which the initial
+release could not have caught (it was verified on Windows only).
+
+### Changed
+
+- **`markdown-it-py` and `beautifulsoup4` are now core dependencies.** Both are pure
+  Python and small, so `pip install polydoc` needs no compilation and genuinely works
+  out of the box for Markdown, HTML, text, JSON and CSV. Previously a bare install
+  could read almost nothing.
+- **`lxml` is now optional even for HTML.** BeautifulSoup falls back to the stdlib
+  parser; `polydoc[html]` installs lxml for speed and better tolerance of malformed
+  markup.
+- `polydoc[markdown]` is kept as an empty extra so existing pins keep working.
+
+### Fixed
+
+- Test suite failed on Linux and macOS but passed on Windows: libxml2 enforces a 10 MB
+  text-node ceiling that the Windows lxml build does not, and one limits test built a
+  64 MB node. The fixture is now 4 MB, which exercises the guard identically and is
+  portable.
+- Lint configuration now pins its rule set explicitly instead of inheriting ruff's
+  defaults, which vary by version and made CI results depend on the runner's ruff.
+- Removed unused imports and dead assignments flagged by lint.
+
 ## [0.1.0] - 2026-08-24
 
 First release.
@@ -86,4 +112,5 @@ First release.
   and `detect` subcommands.
 - PEP 561 typed (`py.typed`).
 
-[0.1.0]: https://github.com/polydoc/polydoc/releases/tag/v0.1.0
+[0.1.1]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.1
+[0.1.0]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.0

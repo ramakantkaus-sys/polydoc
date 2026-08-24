@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import base64
 from html import escape
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from ...model import (
     Alignment,

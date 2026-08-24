@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "polydoc"
-version = "0.1.0"
+version = "0.1.1"
 description = "A universal, editable document model. Read, edit, and write PDF, DOCX, PPTX, XLSX, Markdown, HTML, and more through one API."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -45,17 +45,28 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-dependencies = []
+# Core dependencies are pure Python, small, and compile-free, so `pip install polydoc`
+# is fast everywhere and still genuinely useful: Markdown, HTML, text, JSON and CSV all
+# work out of the box. Everything needing a C extension or a heavyweight backend is an
+# extra.
+dependencies = [
+    "markdown-it-py>=3.0",
+    "beautifulsoup4>=4.12",
+]
 
 [project.optional-dependencies]
-# Each backend is optional. polydoc degrades gracefully: a format is simply
-# unavailable (with an actionable error) when its backend is not installed.
+# Backends that are large or need compilation. polydoc degrades gracefully: a format is
+# simply unavailable (with an actionable install hint) when its backend is absent.
 pdf = ["pymupdf>=1.24", "pdfplumber>=0.11", "reportlab>=4.0"]
 docx = ["python-docx>=1.1"]
 pptx = ["python-pptx>=1.0"]
 xlsx = ["openpyxl>=3.1"]
-html = ["beautifulsoup4>=4.12", "lxml>=5.0"]
-markdown = ["markdown-it-py>=3.0"]
+# lxml is optional even for HTML: BeautifulSoup falls back to the stdlib parser.
+# Installing it makes HTML parsing faster and more tolerant of malformed markup.
+html = ["lxml>=5.0"]
+# Kept so `polydoc[markdown]` does not break for anyone who pinned it before Markdown
+# became a core dependency.
+markdown = []
 all = [
     "pymupdf>=1.24",
     "pdfplumber>=0.11",
@@ -63,11 +74,9 @@ all = [
     "python-docx>=1.1",
     "python-pptx>=1.0",
     "openpyxl>=3.1",
-    "beautifulsoup4>=4.12",
     "lxml>=5.0",
-    "markdown-it-py>=3.0",
 ]
-dev = ["pytest>=8.0", "pytest-cov>=4.1"]
+dev = ["pytest>=8.0", "pytest-cov>=4.1", "ruff>=0.6"]
 
 [project.scripts]
 polydoc = "polydoc.cli:main"
@@ -92,3 +101,22 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+# The rule set is pinned explicitly rather than inherited from ruff's defaults, which
+# change between releases and would make CI results depend on the runner's ruff version.
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501", # line length: enforced by review, not mechanically
+    "E741", # ambiguous names like `l`: not used here, and the check is noisy
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports: __init__ files exist precisely to expose names they do not use.
+"src/polydoc/__init__.py" = ["F401"]
+"src/polydoc/model/__init__.py" = ["F401"]
+"src/polydoc/formats/__init__.py" = ["F401"]
+"src/polydoc/edit/__init__.py" = ["F401"]
+"src/polydoc/intelligence/__init__.py" = ["F401"]
+# Tests import model types for readability even when only some are constructed.
+"tests/*" = ["F401"]

@@ -15,7 +15,7 @@ Speaker notes land on :attr:`Slide.notes`, and grouped shapes are flattened recu
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from ...model import (
     Alignment,

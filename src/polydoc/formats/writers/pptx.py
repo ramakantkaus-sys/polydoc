@@ -36,7 +36,6 @@ from ...model import (
     Paragraph,
     Quote,
     Section,
-    Slide,
     Table,
     TableCell,
     Text,

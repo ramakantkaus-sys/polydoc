@@ -7,7 +7,7 @@ underlined so the structure survives.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Sequence
 
 from ...model import (
     Block,
@@ -22,7 +22,6 @@ from ...model import (
     LineBreak,
     Link,
     ListBlock,
-    ListItem,
     ListStyle,
     Page,
     PageBreak,

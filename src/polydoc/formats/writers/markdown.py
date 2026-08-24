@@ -12,7 +12,7 @@ start a construct -- a leading ``#``, a ``|`` inside a table cell, and so on.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from ...model import (
     Alignment,
@@ -42,7 +42,6 @@ from ...model import (
     Section,
     Slide,
     Table,
-    TableRow,
     Text,
 )
 from ..base import TextWriter

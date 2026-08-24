@@ -65,17 +65,20 @@ doc.replace_text("FY2024 Q3", "FY2025 Q1")   # works; bold and italic intact
 ## Install
 
 ```bash
-pip install polydoc              # core: Markdown, HTML, text, JSON, CSV
-pip install "polydoc[all]"       # everything below
+pip install polydoc              # Markdown, HTML, text, JSON, CSV
+pip install "polydoc[all]"       # adds PDF, DOCX, PPTX, XLSX
 ```
 
-Backends are optional, so you only install what you need:
+The core install is pure Python with no compilation, and already handles Markdown, HTML,
+plain text, JSON and CSV. The heavier backends are extras, so you install only what you
+need:
 
 ```bash
 pip install "polydoc[pdf]"       # PyMuPDF, pdfplumber, reportlab
 pip install "polydoc[docx]"      # python-docx
 pip install "polydoc[pptx]"      # python-pptx
 pip install "polydoc[xlsx]"      # openpyxl
+pip install "polydoc[html]"      # lxml, for faster and more tolerant HTML parsing
 pip install "polydoc[docx,pdf]"  # combine as needed
 ```
 

@@ -18,7 +18,7 @@ content, always normalised to the printable width.
 from __future__ import annotations
 
 import html as _html
-from typing import Any, BinaryIO, Dict, List, Optional, Sequence, Tuple
+from typing import Any, BinaryIO, Dict, List, Sequence, Tuple
 
 from ...exceptions import WriteError
 from ...model import (
@@ -39,7 +39,6 @@ from ...model import (
     LineBreak,
     Link,
     ListBlock,
-    ListItem,
     ListStyle,
     Math,
     Page,
@@ -237,7 +236,6 @@ class _PDFBuilder:
 
     # -- entry point ----------------------------------------------------------
     def build(self, stream: BinaryIO) -> None:
-        from reportlab.platypus import SimpleDocTemplate
 
         width, height, left, right, top, bottom = self._geometry()
         self.frame_width = width - left - right

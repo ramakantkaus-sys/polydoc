@@ -16,7 +16,7 @@ import json
 from typing import Any, Dict, List, Sequence
 
 from ...exceptions import ParseError
-from ...model import CodeBlock, Document, Heading, Paragraph, Table
+from ...model import CodeBlock, Document, Table
 from ..base import Reader
 from ..registry import register_reader
 from ..source import Source

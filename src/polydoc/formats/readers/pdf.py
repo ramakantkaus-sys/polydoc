@@ -49,7 +49,6 @@ from ...model import (
     Paragraph,
     Size,
     Table,
-    TableRow,
     Text,
     TextStyle,
     merge_runs,

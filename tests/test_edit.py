@@ -312,7 +312,7 @@ class TestStructuralOps:
     def test_move_into_a_container(self):
         holder = Container(role="aside")
         block = Paragraph.of("x")
-        document = Document([block, holder])
+        Document([block, holder])  # parents the pair so move() can relocate
         move(block, holder, "end")
         assert holder.content == [block]
         assert block.parent is holder

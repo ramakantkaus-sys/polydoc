@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Any, BinaryIO, Dict, List, Optional, Sequence, Tuple
 
-from ...exceptions import WriteError
 from ...model import (
     Alignment,
     Block,

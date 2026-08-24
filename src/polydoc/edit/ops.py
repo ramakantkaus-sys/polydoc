@@ -16,12 +16,11 @@ be edited without knowing where in the tree it sits::
 from __future__ import annotations
 
 from dataclasses import fields, is_dataclass, replace as _replace
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..exceptions import EditError
 from ..model.base import Node
 from ..model.blocks import (
-    Block,
     BlockContainer,
     Container,
     Heading,
@@ -30,12 +29,11 @@ from ..model.blocks import (
     Paragraph,
     Quote,
     Section,
-    Table,
 )
 from ..model.document import Document
 from ..model.inline import Inline, Text, merge_runs
 from ..model.style import ParagraphStyle, TextStyle
-from .selector import Selector, compile_selector, select
+from .selector import Selector, select
 
 __all__ = [
     "Pipeline",

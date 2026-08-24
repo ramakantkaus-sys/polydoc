@@ -195,7 +195,7 @@ def parent() -> int:
             else:
                 print(f"    survived in {elapsed:.1f}s")
         except subprocess.TimeoutExpired:
-            print(f"    *** CHILD HUNG past 180s -- unbounded work")
+            print("    *** CHILD HUNG past 180s -- unbounded work")
             worst = max(worst, 2)
         print()
     return worst

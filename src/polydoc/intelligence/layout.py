@@ -18,8 +18,7 @@ The font-statistics approach matters because absolute sizes mean nothing on thei
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from statistics import median
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..model.geometry import BBox
 from ..model.style import TextStyle

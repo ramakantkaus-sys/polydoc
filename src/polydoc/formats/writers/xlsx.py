@@ -24,8 +24,6 @@ from ...model import (
     Container,
     Document,
     Heading,
-    Image,
-    ListBlock,
     Page,
     Paragraph,
     Section,

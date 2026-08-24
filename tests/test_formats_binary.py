@@ -522,7 +522,7 @@ class TestForeignPdf:
 
     @pytest.fixture
     def path(self, tmp_path):
-        reportlab = pytest.importorskip("reportlab")
+        pytest.importorskip("reportlab")
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas as canvas_module
 

@@ -25,7 +25,7 @@ surrounding formatting is untouched, and matches spanning any number of runs wor
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field, fields, is_dataclass, replace as _replace
+from dataclasses import dataclass, fields, is_dataclass, replace as _replace
 from typing import Any, Callable, Dict, Iterator, List, Optional, Pattern, Sequence, Tuple, Union
 
 from ..exceptions import EditError
