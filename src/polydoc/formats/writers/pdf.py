@@ -18,7 +18,7 @@ content, always normalised to the printable width.
 from __future__ import annotations
 
 import html as _html
-from typing import Any, BinaryIO, Dict, List, Sequence, Tuple
+from typing import Any, BinaryIO, Dict, List, Optional, Sequence, Tuple
 
 from ...exceptions import WriteError
 from ...model import (

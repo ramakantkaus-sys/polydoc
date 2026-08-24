@@ -421,3 +421,108 @@ class TestErrorHierarchy:
     def test_unsupported_format_lists_alternatives(self):
         error = UnsupportedFormatError("xyz", "read", ["markdown", "txt"])
         assert "markdown" in str(error)
+
+
+class TestAnnotationsResolve:
+    """Every annotation in the package must reference a name that actually exists.
+
+    ``from __future__ import annotations`` stores annotations as strings, so a missing
+    ``typing`` import is invisible at runtime and no functional test can catch it.
+    0.1.3 shipped exactly that: ``Optional`` was used in the PDF writer without being
+    imported, tests passed on every platform, and only the linter objected. Anything
+    calling ``typing.get_type_hints`` on the module -- Pydantic, FastAPI, attrs,
+    documentation generators -- would have raised ``NameError``.
+
+    A name imported only under ``if TYPE_CHECKING:`` is a deliberate pattern for
+    breaking an import cycle, and such a name provably exists, so those are resolved
+    rather than reported.
+    """
+
+    def _modules(self):
+        import importlib
+        import pkgutil
+
+        import polydoc as package
+
+        found = []
+        for info in pkgutil.walk_packages(package.__path__, prefix="polydoc."):
+            try:
+                found.append(importlib.import_module(info.name))
+            except ImportError:
+                continue  # an optional backend is not installed
+        return found
+
+    def _type_checking_names(self, module):
+        """Import the names the module declares under ``if TYPE_CHECKING:``.
+
+        Parsed from source rather than hardcoded, so the guard keeps working as the
+        package grows.
+        """
+        import ast
+        import importlib
+        import inspect
+
+        namespace = {}
+        try:
+            tree = ast.parse(inspect.getsource(module))
+        except (OSError, TypeError, SyntaxError):
+            return namespace
+
+        for node in ast.walk(tree):
+            guarded = (
+                isinstance(node, ast.If)
+                and (
+                    (isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING")
+                    or (
+                        isinstance(node.test, ast.Attribute)
+                        and node.test.attr == "TYPE_CHECKING"
+                    )
+                )
+            )
+            if not guarded:
+                continue
+            for statement in node.body:
+                if not isinstance(statement, ast.ImportFrom) or statement.module is None:
+                    continue
+                target = "." * statement.level + statement.module
+                try:
+                    imported = importlib.import_module(target, package=module.__package__)
+                except ImportError:
+                    continue
+                for alias in statement.names:
+                    bound = alias.asname or alias.name
+                    if hasattr(imported, alias.name):
+                        namespace[bound] = getattr(imported, alias.name)
+        return namespace
+
+    def test_every_module_has_resolvable_annotations(self):
+        import inspect
+        import typing
+
+        failures = []
+        for module in self._modules():
+            localns = self._type_checking_names(module)
+            members = [
+                obj
+                for _name, obj in vars(module).items()
+                if (inspect.isfunction(obj) or inspect.isclass(obj))
+                and getattr(obj, "__module__", None) == module.__name__
+            ]
+            for obj in members:
+                targets = [obj]
+                if inspect.isclass(obj):
+                    targets += [
+                        value
+                        for value in vars(obj).values()
+                        if inspect.isfunction(value)
+                    ]
+                for target in targets:
+                    try:
+                        typing.get_type_hints(target, localns=localns)
+                    except NameError as exc:
+                        failures.append(f"{module.__name__}.{target.__qualname__}: {exc}")
+                    except Exception:
+                        # Forward references to optional third-party types are fine.
+                        pass
+
+        assert not failures, "unresolvable annotations:\n" + "\n".join(failures)

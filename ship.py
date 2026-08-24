@@ -60,7 +60,22 @@ if result.returncode != 0:
     print(result.stdout[-3000:])
 
 # ---------------------------------------------------------------------------
-step("2. Clean the build directories")
+step("2. Lint (the same check CI runs)")
+# This gate used to skip linting, so 0.1.3 shipped with an undefined name that CI
+# then rejected. Tests could not catch it: `from __future__ import annotations`
+# keeps annotations as strings, so a missing typing import never executes.
+result = run([sys.executable, "-m", "ruff", "check", "src", "tests"], clean_path=True)
+if result.returncode == 0:
+    check("ruff reports no errors", True)
+elif "No module named" in (result.stderr or ""):
+    check("ruff is installed", False, "pip install ruff -- CI will lint even if this gate cannot")
+else:
+    tail = [ln for ln in result.stdout.splitlines() if ln.startswith("Found ")]
+    check("ruff reports no errors", False, tail[-1] if tail else "")
+    print(result.stdout[-2000:])
+
+# ---------------------------------------------------------------------------
+step("3. Clean the build directories")
 for name in ("dist", "build"):
     target = ROOT / name
     if target.exists():
@@ -74,7 +89,7 @@ for egg in ROOT.glob("src/*.egg-info"):
 check("dist/ and build/ removed", not (ROOT / "dist").exists())
 
 # ---------------------------------------------------------------------------
-step("3. Build sdist and wheel")
+step("4. Build sdist and wheel")
 result = run([sys.executable, "-m", "build"])
 built = sorted(p.name for p in (ROOT / "dist").glob("*")) if (ROOT / "dist").exists() else []
 check("build succeeded", result.returncode == 0 and len(built) == 2, ", ".join(built))
@@ -83,14 +98,14 @@ if result.returncode != 0:
     print(result.stderr[-2500:])
 
 # ---------------------------------------------------------------------------
-step("4. Validate metadata (twine check)")
+step("5. Validate metadata (twine check)")
 result = run([sys.executable, "-m", "twine", "check", "dist/*"])
 output = result.stdout + result.stderr
 check("twine check passes", "PASSED" in output and "FAILED" not in output,
       output.strip().splitlines()[-1] if output.strip() else "")
 
 # ---------------------------------------------------------------------------
-step("5. Confirm no secrets in the artifacts")
+step("6. Confirm no secrets in the artifacts")
 FORBIDDEN_NAMES = (".env", ".pypirc", "secrets")
 FORBIDDEN_CONTENT = (b"pypi-", b"gho_", b"ghp_")
 
@@ -124,7 +139,7 @@ for archive_path in sorted((ROOT / "dist").glob("*")):
           any("LICENSE" in n for n in names))
 
 # ---------------------------------------------------------------------------
-step("6. Install the wheel into a clean venv and smoke test")
+step("7. Install the wheel into a clean venv and smoke test")
 import tempfile
 
 venv_dir = Path(tempfile.mkdtemp(prefix="polydoc_release_")) / "venv"

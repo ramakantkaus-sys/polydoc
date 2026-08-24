@@ -3,6 +3,29 @@
 All notable changes to polydoc are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-08-24
+
+Maintenance release. **No effect on normal usage** -- if `polydoc` works for you on
+0.1.3, it behaves identically here.
+
+### Fixed
+
+- `Optional` was used in the PDF writer's annotations without being imported. Because
+  the module uses `from __future__ import annotations`, annotations are stored as
+  strings and never evaluated, so every runtime path worked and all 700 tests passed on
+  all 15 platform jobs. It breaks only callers that resolve annotations at runtime --
+  `typing.get_type_hints`, and by extension Pydantic, FastAPI, attrs and some
+  documentation generators -- which raised `NameError`.
+
+### Added
+
+- The release gate (`ship.py`) now runs the same lint check as CI. It previously did
+  not, which is the only reason 0.1.3 was published with a defect CI then rejected.
+- A test that resolves every annotation in every module, so this class of bug fails the
+  suite rather than only the linter. Names imported under `if TYPE_CHECKING:` are
+  resolved from the declared source rather than reported, since that pattern is
+  deliberate for breaking import cycles.
+
 ## [0.1.3] - 2026-08-24
 
 Completes the 0.1.2 image fix, which only worked on ReportLab 4.x.
@@ -165,6 +188,7 @@ First release.
   and `detect` subcommands.
 - PEP 561 typed (`py.typed`).
 
+[0.1.4]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.4
 [0.1.3]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.1
