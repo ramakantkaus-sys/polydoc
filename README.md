@@ -3,7 +3,9 @@
 **One editable document model for every format.** Read a PDF, edit it like a data
 structure, write it out as DOCX. Or PPTX. Or Markdown.
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/polydoc)](https://pypi.org/project/polydoc/)
+[![Python](https://img.shields.io/pypi/pyversions/polydoc)](https://pypi.org/project/polydoc/)
+[![CI](https://github.com/ramakantkaus-sys/polydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/ramakantkaus-sys/polydoc/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ```python
