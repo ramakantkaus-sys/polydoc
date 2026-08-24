@@ -3,6 +3,27 @@
 All notable changes to polydoc are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-08-24
+
+Completes the 0.1.2 image fix, which only worked on ReportLab 4.x.
+
+### Fixed
+
+- **Inline images failed on ReportLab 5.x.** 0.1.2 embedded them as `data:` URIs, which
+  4.x resolves but 5.x does not — it raises an internal `UnboundLocalError` from its URL
+  reader and then `OSError: Cannot open resource`. Since the fix was developed against a
+  local 4.5.0 install, the tests passed locally and CI went red on all 15 platform jobs.
+  Inline images now spill to temporary files and are referenced by path, which is the one
+  mechanism every ReportLab version supports. Identical images are spilled once and
+  reused, and the files are removed after layout.
+- Now verified against **both** ReportLab 4.5.0 and 5.0.1 rather than whichever version
+  happens to be installed.
+
+### Note
+
+Pin `reportlab` if you need byte-reproducible PDF output; 4.x and 5.x differ in their
+internal image handling.
+
 ## [0.1.2] - 2026-08-24
 
 Fixes a crash affecting one of the most common conversions there is: a Word document
@@ -144,6 +165,7 @@ First release.
   and `detect` subcommands.
 - PEP 561 typed (`py.typed`).
 
+[0.1.3]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.0

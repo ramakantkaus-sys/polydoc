@@ -83,6 +83,17 @@ _VALIGN_CODES = {
     VerticalAlign.BOTTOM: "BOTTOM",
 }
 
+#: File suffix per MIME type, so ReportLab can pick the right decoder from the path.
+_IMAGE_SUFFIXES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/bmp": ".bmp",
+    "image/tiff": ".tiff",
+    "image/webp": ".webp",
+}
+
 #: Horizontal placement for image flowables. ReportLab's own default is CENTER, which
 #: silently recentres a left-aligned figure, so ``None`` maps to LEFT here.
 _IMAGE_ALIGN = {
@@ -132,6 +143,8 @@ class _PDFBuilder:
         self.outline: bool = options.get("outline", True)
         self.page_numbers: bool = options.get("page_numbers", True)
         self._styles = self._build_styles()
+        #: sha1 -> temp file path, for inline images spilled during layout.
+        self._spilled: Dict[str, str] = {}
 
     # -- setup ----------------------------------------------------------------
     def _geometry(self) -> Tuple[float, float, float, float, float, float]:
@@ -266,18 +279,25 @@ class _PDFBuilder:
         )
         template.enable_outline = self.outline
 
-        story = self._story()
-        if not story:
-            # ReportLab refuses to emit a zero-flowable document.
-            from reportlab.platypus import Spacer
-
-            story = [Spacer(1, 1)]
-
-        decorator = _PageDecorator(self.document, self.page_numbers, self.base_font)
+        # Inline images spill to temp files while the story is assembled; they must
+        # survive until build() has read them, hence the try/finally around both.
         try:
-            template.build(story, onFirstPage=decorator, onLaterPages=decorator)
-        except Exception as exc:  # pragma: no cover - layout overflow
-            raise WriteError(f"ReportLab could not lay out this document: {exc}") from exc
+            story = self._story()
+            if not story:
+                # ReportLab refuses to emit a zero-flowable document.
+                from reportlab.platypus import Spacer
+
+                story = [Spacer(1, 1)]
+
+            decorator = _PageDecorator(self.document, self.page_numbers, self.base_font)
+            try:
+                template.build(story, onFirstPage=decorator, onLaterPages=decorator)
+            except Exception as exc:  # pragma: no cover - layout overflow
+                raise WriteError(
+                    f"ReportLab could not lay out this document: {exc}"
+                ) from exc
+        finally:
+            self._cleanup_spilled()
 
     def _story(self) -> List[Any]:
         blocks = unwrap_pages(self.document)
@@ -505,12 +525,14 @@ class _PDFBuilder:
         return markup
 
     def _inline_image(self, node: InlineImage) -> str:
-        """Embed an inline image inside a paragraph as a ``<img>`` data URI.
+        """Embed an inline image inside a paragraph via ReportLab's ``<img>`` markup.
 
-        ReportLab's paragraph markup resolves ``src`` through ``open_for_read``, which
-        accepts a filename, a URL, or a ``data:`` URI. A data URI is the right choice
-        here: the bytes are already in memory, and it avoids writing temp files that
-        would then need cleaning up.
+        The bytes are spilled to a temporary file and referenced by path, which is the
+        only mechanism every ReportLab version supports. A ``data:`` URI is tempting
+        since the bytes are already in memory, and it works on 4.x -- but 5.x fails to
+        resolve one (raising an internal ``UnboundLocalError`` from its URL reader), so
+        the URI approach silently breaks depending on which ReportLab a user happens to
+        have. The files are cleaned up in :meth:`build`, after the document is laid out.
 
         Any failure degrades to the alt text rather than aborting the whole document --
         one unreadable logo should not cost you the conversion.
@@ -519,7 +541,6 @@ class _PDFBuilder:
             return self._image_fallback(node)
 
         try:
-            import base64
             from io import BytesIO
 
             from reportlab.lib.utils import ImageReader
@@ -531,14 +552,57 @@ class _PDFBuilder:
             width, height = self._fit_inline(
                 node.width, node.height, natural_width, natural_height
             )
-            mime = node.mime_type or "image/png"
-            encoded = base64.b64encode(node.data).decode("ascii")
+            path = self._spill(node.data, node.mime_type)
+            if path is None:
+                return self._image_fallback(node)
             return (
-                f'<img src="data:{mime};base64,{encoded}" '
+                f'<img src="{path}" '
                 f'width="{width:g}" height="{height:g}" valign="middle"/>'
             )
         except Exception:
             return self._image_fallback(node)
+
+    def _spill(self, data: bytes, mime_type: Optional[str]) -> Optional[str]:
+        """Write image bytes to a temp file and return a markup-safe path.
+
+        Identical images are spilled once and reused, so a logo repeated on every page
+        costs one file rather than dozens.
+        """
+        import hashlib
+        import tempfile
+
+        digest = hashlib.sha1(data).hexdigest()
+        existing = self._spilled.get(digest)
+        if existing is not None:
+            return existing
+
+        suffix = _IMAGE_SUFFIXES.get((mime_type or "").lower(), ".png")
+        try:
+            handle = tempfile.NamedTemporaryFile(
+                prefix="polydoc_img_", suffix=suffix, delete=False
+            )
+            with handle:
+                handle.write(data)
+        except OSError:
+            return None
+
+        # Forward slashes and no quotes: the path goes inside an XML-ish attribute.
+        path = handle.name.replace("\\", "/")
+        if '"' in path:
+            return None
+        self._spilled[digest] = path
+        return path
+
+    def _cleanup_spilled(self) -> None:
+        """Remove the temp files created for inline images."""
+        import os
+
+        for path in self._spilled.values():
+            try:
+                os.unlink(path)
+            except OSError:  # pragma: no cover - already gone, or locked
+                pass
+        self._spilled.clear()
 
     def _fit_inline(
         self,
