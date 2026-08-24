@@ -1,0 +1,23 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include SECURITY.md
+include pyproject.toml
+include src/polydoc/py.typed
+
+recursive-include tests *.py
+recursive-include scripts *.py
+
+# Never ship secrets or local scratch, whatever else matches above.
+exclude .env
+exclude .env.*
+exclude .pypirc
+exclude .gitignore
+global-exclude .env
+prune _dev
+prune build
+prune dist
+prune .github
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.so

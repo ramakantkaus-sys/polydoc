@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install with all backends
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run tests
+        run: pytest -q --cov=polydoc --cov-report=term-missing
+
+  minimal:
+    name: minimal install (no optional backends)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # The core must import and work with no optional backend present, and the
+      # backend-dependent tests must skip rather than fail.
+      - name: Install core only
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Import without backends
+        run: |
+          python -c "import polydoc; print(polydoc.__version__, polydoc.formats())"
+
+      - name: Run tests (backend tests should skip)
+        run: pytest -q -rs
+
+  distribution:
+    name: build and verify the wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      - name: Check package metadata
+        run: twine check dist/*
+
+      # Install the built wheel somewhere else entirely and run from /tmp, so a pass
+      # cannot be explained by the source tree being importable. This is what catches
+      # undeclared dependencies that happen to exist in the dev environment.
+      - name: Install the wheel in a clean venv and smoke test
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install --upgrade pip
+          /tmp/verify/bin/pip install "$(ls dist/*.whl)[all]"
+          cd /tmp
+          /tmp/verify/bin/python "$GITHUB_WORKSPACE/scripts/smoke_test.py"
+          /tmp/verify/bin/polydoc --version
+          /tmp/verify/bin/polydoc formats
+
+      # The same smoke test with no optional backends: it must skip the unavailable
+      # formats and still pass.
+      - name: Smoke test a core-only install
+        run: |
+          python -m venv /tmp/minimal
+          /tmp/minimal/bin/pip install --upgrade pip
+          /tmp/minimal/bin/pip install "$(ls dist/*.whl)"
+          cd /tmp
+          /tmp/minimal/bin/python "$GITHUB_WORKSPACE/scripts/smoke_test.py"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check src tests

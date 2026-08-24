@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "polydoc"
+version = "0.1.0"
+description = "A universal, editable document model. Read, edit, and write PDF, DOCX, PPTX, XLSX, Markdown, HTML, and more through one API."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+# Name only, deliberately: PyPI metadata is public and scraped, so the contact
+# channel is the issue tracker rather than an email address.
+authors = [{ name = "Ramakant Kaushik" }]
+maintainers = [{ name = "Ramakant Kaushik" }]
+keywords = [
+    "document",
+    "conversion",
+    "pdf",
+    "docx",
+    "pptx",
+    "xlsx",
+    "markdown",
+    "html",
+    "editing",
+    "document-model",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Office/Business :: Office Suites",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Each backend is optional. polydoc degrades gracefully: a format is simply
+# unavailable (with an actionable error) when its backend is not installed.
+pdf = ["pymupdf>=1.24", "pdfplumber>=0.11", "reportlab>=4.0"]
+docx = ["python-docx>=1.1"]
+pptx = ["python-pptx>=1.0"]
+xlsx = ["openpyxl>=3.1"]
+html = ["beautifulsoup4>=4.12", "lxml>=5.0"]
+markdown = ["markdown-it-py>=3.0"]
+all = [
+    "pymupdf>=1.24",
+    "pdfplumber>=0.11",
+    "reportlab>=4.0",
+    "python-docx>=1.1",
+    "python-pptx>=1.0",
+    "openpyxl>=3.1",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "markdown-it-py>=3.0",
+]
+dev = ["pytest>=8.0", "pytest-cov>=4.1"]
+
+[project.scripts]
+polydoc = "polydoc.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ramakantkaus-sys/polydoc"
+Documentation = "https://github.com/ramakantkaus-sys/polydoc#readme"
+Repository = "https://github.com/ramakantkaus-sys/polydoc"
+Issues = "https://github.com/ramakantkaus-sys/polydoc/issues"
+Changelog = "https://github.com/ramakantkaus-sys/polydoc/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+polydoc = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
