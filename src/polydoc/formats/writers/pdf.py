@@ -83,6 +83,16 @@ _VALIGN_CODES = {
     VerticalAlign.BOTTOM: "BOTTOM",
 }
 
+#: Horizontal placement for image flowables. ReportLab's own default is CENTER, which
+#: silently recentres a left-aligned figure, so ``None`` maps to LEFT here.
+_IMAGE_ALIGN = {
+    Alignment.LEFT: "LEFT",
+    Alignment.CENTER: "CENTER",
+    Alignment.RIGHT: "RIGHT",
+    Alignment.JUSTIFY: "LEFT",
+    None: "LEFT",
+}
+
 #: Point sizes for heading levels 1-6.
 _HEADING_SIZES = (22.0, 17.0, 14.0, 12.5, 11.5, 11.0)
 
@@ -495,20 +505,75 @@ class _PDFBuilder:
         return markup
 
     def _inline_image(self, node: InlineImage) -> str:
-        """ReportLab supports inline images only from a file or reader object."""
-        if self.embed_images and node.data:
-            try:
-                from io import BytesIO
+        """Embed an inline image inside a paragraph as a ``<img>`` data URI.
 
-                from reportlab.lib.utils import ImageReader
+        ReportLab's paragraph markup resolves ``src`` through ``open_for_read``, which
+        accepts a filename, a URL, or a ``data:`` URI. A data URI is the right choice
+        here: the bytes are already in memory, and it avoids writing temp files that
+        would then need cleaning up.
 
-                reader = ImageReader(BytesIO(node.data))
-                width = node.width or 12
-                height = node.height or 12
-                return f'<img src="{id(reader)}" width="{width:g}" height="{height:g}"/>'
-            except Exception:
-                pass
-        return _escape(f"[{node.alt}]") if node.alt else ""
+        Any failure degrades to the alt text rather than aborting the whole document --
+        one unreadable logo should not cost you the conversion.
+        """
+        if not (self.embed_images and node.data):
+            return self._image_fallback(node)
+
+        try:
+            import base64
+            from io import BytesIO
+
+            from reportlab.lib.utils import ImageReader
+
+            natural_width, natural_height = ImageReader(BytesIO(node.data)).getSize()
+            if not natural_width or not natural_height:
+                return self._image_fallback(node)
+
+            width, height = self._fit_inline(
+                node.width, node.height, natural_width, natural_height
+            )
+            mime = node.mime_type or "image/png"
+            encoded = base64.b64encode(node.data).decode("ascii")
+            return (
+                f'<img src="data:{mime};base64,{encoded}" '
+                f'width="{width:g}" height="{height:g}" valign="middle"/>'
+            )
+        except Exception:
+            return self._image_fallback(node)
+
+    def _fit_inline(
+        self,
+        width: Optional[float],
+        height: Optional[float],
+        natural_width: float,
+        natural_height: float,
+    ) -> Tuple[float, float]:
+        """Resolve an inline image's size, preserving aspect ratio.
+
+        The model may carry one dimension, both, or neither. A missing dimension is
+        derived from the other so a logo is never stretched, and the result is capped to
+        the printable width so an oversized image cannot overflow the frame.
+        """
+        aspect = natural_height / natural_width
+        if width and height:
+            resolved_width, resolved_height = float(width), float(height)
+        elif width:
+            resolved_width, resolved_height = float(width), float(width) * aspect
+        elif height:
+            resolved_width, resolved_height = float(height) / aspect, float(height)
+        else:
+            resolved_width, resolved_height = float(natural_width), float(natural_height)
+
+        ceiling = getattr(self, "frame_width", 468.0)
+        if resolved_width > ceiling:
+            scale = ceiling / resolved_width
+            resolved_width, resolved_height = resolved_width * scale, resolved_height * scale
+        return (resolved_width, resolved_height)
+
+    @staticmethod
+    def _image_fallback(node: Any) -> str:
+        """What to show when an image cannot be embedded."""
+        label = getattr(node, "alt", "") or getattr(node, "caption", "") or ""
+        return _escape(f"[{label}]") if label else ""
 
     # -- lists ----------------------------------------------------------------
     def _list(self, block: ListBlock, depth: int = 0) -> Any:
@@ -700,16 +765,21 @@ class _PDFBuilder:
                 from reportlab.lib.utils import ImageReader
                 from reportlab.platypus import Image as RLImage
 
-                reader = ImageReader(BytesIO(block.data))
-                native_width, native_height = reader.getSize()
-                width = block.width or native_width
-                height = block.height or native_height
-                if width > self.frame_width:
-                    height *= self.frame_width / width
-                    width = self.frame_width
-                out.append(RLImage(BytesIO(block.data), width=width, height=height))
-                placed = True
+                natural_width, natural_height = ImageReader(BytesIO(block.data)).getSize()
+                if natural_width and natural_height:
+                    # Shared with the inline path so a figure and a logo scale alike.
+                    width, height = self._fit_inline(
+                        block.width, block.height, natural_width, natural_height
+                    )
+                    flowable = RLImage(BytesIO(block.data), width=width, height=height)
+                    # ReportLab centres images by default. Honour the block's own
+                    # alignment instead, falling back to LEFT so a left-aligned logo in
+                    # the source does not drift to the middle of the page.
+                    flowable.hAlign = _IMAGE_ALIGN.get(block.style.alignment, "LEFT")
+                    out.append(flowable)
+                    placed = True
             except Exception:
+                # A single unreadable image must not cost the whole document.
                 placed = False
 
         if not placed:

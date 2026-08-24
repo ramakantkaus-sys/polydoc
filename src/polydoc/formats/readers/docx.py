@@ -314,7 +314,9 @@ class _DocxParser:
                 return [PageBreak()]
             return [Paragraph([])] if self.keep_empty else None
 
-        # A paragraph holding only an image is a block-level image.
+        # A paragraph holding only an image is a block-level image. The paragraph's
+        # own alignment is carried across, since that is what positions a figure or a
+        # logo on the page; dropping it would recentre everything on export.
         if has_media and text_empty and len(content) == 1:
             picture = content[0]
             block: Block = Image(
@@ -324,6 +326,7 @@ class _DocxParser:
                 width=picture.width,
                 height=picture.height,
                 mime_type=picture.mime_type,
+                style=self.paragraph_style(para, style_name),
             )
             return ([PageBreak()] if has_break else []) + [block]
 

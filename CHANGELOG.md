@@ -3,6 +3,38 @@
 All notable changes to polydoc are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-24
+
+Fixes a crash affecting one of the most common conversions there is: a Word document
+containing a logo, converted to PDF.
+
+### Fixed
+
+- **DOCX → PDF crashed when an image sat inline beside text.** The PDF writer passed
+  `id(reader)` — a Python object's memory address — as ReportLab's image `src`, so
+  ReportLab tried to open it as a filename and raised
+  `OSError: Cannot open resource "2542527337408"`. Inline images are now embedded as
+  `data:` URIs, which ReportLab resolves natively. A logo beside text is precisely how
+  letterheads and certifications are laid out, so this affected a lot of real documents.
+- **Standalone figures were recentred on export.** ReportLab centres image flowables by
+  default, so a left-aligned figure in Word drifted to the middle of the PDF page. The
+  DOCX reader now carries the paragraph's alignment onto the `Image` block, and the PDF
+  writer honours it, defaulting to left rather than centre.
+- **An unreadable image no longer costs the whole document.** Corrupt or unsupported
+  image data degrades to the alt text instead of aborting the conversion.
+- Inline images preserve aspect ratio when only one dimension is known, and are capped
+  to the printable width so an oversized image cannot overflow the frame.
+
+### Added
+
+- 34 image tests (`tests/test_images.py`) covering all three structural positions —
+  standalone figure, inline beside text, and inside a table cell — across DOCX, PDF,
+  HTML, Markdown, JSON, and PPTX. This area previously had **no** tests, which is why
+  the crash shipped.
+- Verification includes rendering the output PDF and checking the logo's colours are
+  actually present in the rasterised page, rather than only asserting an image object
+  exists.
+
 ## [0.1.1] - 2026-08-24
 
 Packaging and portability fixes found by CI on Linux and macOS, which the initial
@@ -112,5 +144,6 @@ First release.
   and `detect` subcommands.
 - PEP 561 typed (`py.typed`).
 
+[0.1.2]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ramakantkaus-sys/polydoc/releases/tag/v0.1.0

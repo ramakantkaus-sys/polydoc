@@ -349,6 +349,61 @@ class RtfReader(Reader):
 
 ---
 
+## Images
+
+Images are carried as bytes through the model, so they survive conversion rather than
+being dropped or turned into placeholders:
+
+```python
+doc = polydoc.open("letterhead.docx")   # logo extracted with its bytes
+doc.save("letterhead.pdf")              # logo embedded in the PDF
+```
+
+Three structurally different positions are each handled:
+
+| In the source | Becomes | Notes |
+| --- | --- | --- |
+| A paragraph containing only a picture | `Image` block | Alignment preserved |
+| A picture beside text in one paragraph | `InlineImage` | Sits on the text baseline |
+| A picture inside a table cell | `Image` inside `TableCell` | |
+
+What each writer does with them:
+
+| Format | Behaviour |
+| --- | --- |
+| PDF | Embedded. Inline images as `data:` URIs on the baseline; figures honour alignment |
+| DOCX | Re-embedded into `word/media/` |
+| PPTX | Re-embedded as picture shapes |
+| XLSX | Not embedded — the cell keeps the alt text |
+| HTML | Inlined as a `data:` URI, so the file is self-contained. `embed_images=False` to reference instead |
+| Markdown | `![alt](src)` reference; bytes are not inlined |
+| JSON | Bytes preserved base64, so the round trip is lossless |
+| Text | `[Image: alt]` |
+
+Reading a PDF extracts its raster images too, so `DOCX → PDF → DOCX` keeps the logo.
+
+Useful options:
+
+```python
+polydoc.open("doc.docx", extract_images=False)   # locate images, skip the bytes
+doc.save("out.pdf", embed_images=False)          # placeholders instead of pictures
+doc.save("out.html", embed_images=False)         # reference rather than inline
+```
+
+### What is not exact
+
+- **Aspect ratio is preserved, absolute position is not.** Images flow inline with the
+  text rather than being anchored to page coordinates. A figure that floated at a fixed
+  spot on a Word page will appear at its position *in the document order* instead.
+- **Text wrapping around an image is not reproduced.** Word's "square" or "tight" wrap
+  becomes a block-level image with text above and below.
+- **Vector graphics are not converted.** SVG, EMF, and WMF are carried as bytes but not
+  rasterised, so a writer that cannot embed them falls back to the alt text. Raster
+  formats (PNG, JPEG, GIF, BMP) embed everywhere.
+- **Cropping and effects are lost.** A picture cropped in Word exports at its full
+  original extent; drop shadows, reflections and recolouring are not reproduced.
+- **An unreadable image degrades to its alt text** rather than aborting the conversion.
+
 ## Untrusted input
 
 If your service accepts uploaded documents, read this section.
